@@ -1,0 +1,413 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>AR Jardin</title>
+    <!-- A-Frame itself -->
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <!-- Pure three.js code that the A-Frame components use for location-based AR -->
+    <script src= "{% static 'js/arjs.js' %}" ></script>
+    <!-- AR.js A-Frame components -->
+    <script type='text/javascript'
+        src='https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js'></script>
+    <style>
+        /* Estilos para superponer el botón en la esquina superior izquierda */
+        #button-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1;
+        }
+
+        /* Estilos para el recuadro blanco del resultado */
+        #result-container {
+            cursor: pointer;
+            position: absolute;
+            background-color: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            bottom: 10px;
+            left: 10px;
+            z-index: 1;
+        }
+
+        #buttonEncuesta-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            margin: 10px; /* Agrega margen para separar el botón del borde */
+            z-index: 5;
+        }
+
+        /* Estilos para el recuadro blanco del resultado */
+        #encuesta-container a {
+            text-decoration: none;
+            cursor: pointer;
+            background-color: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            z-index: 1;
+        }
+
+        #buttonReserva-container {
+            position: absolute;
+            top: 0px; /* Ajusta la posición superior del contenedor */
+            right: 10px; /* Ajusta la posición derecha del contenedor */
+            margin: 10px;
+            z-index: 5;
+        }
+
+        #reserva-container a {
+            text-decoration: none;
+            cursor: pointer;
+            background-color: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            z-index: 1;
+        }
+
+        /* Estilos para el texto del resultado */
+        #result-text {
+            font-weight: bold;
+        }
+
+        /* Estilos para el cuadro de texto de la planta */
+        #plant-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 2;
+            /* Mayor z-index para que esté por encima del botón */
+        }
+
+        /* Estilos para el texto de la planta */
+        #plant-text {
+            font-weight: bold;
+        }
+    </style>
+    <script>
+
+    </script>
+
+</head>
+
+<body>
+    <div id="teachable-machine-container">
+
+        <div id="result-container" class="button" onclick="togglePredicting()">
+            <p>Resultado: <span id="result-text">Ninguna</span></p>
+        </div>
+
+        <div id="buttonEncuesta-container">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="usuario_id" value="{{ usuario_id }}">
+                <input type="hidden" name="visita_id" value="{{ visita_id }}">
+                <button id="encuesta-container" type="submit" name="action" value="EncuestaView">Encuesta</button>
+            </form>
+        </div>
+        <div id="buttonReserva-container">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="usuario_id" value="{{ usuario_id }}">
+                <input type="hidden" name="visita_id" value="{{ visita_id }}">
+                <button id="reserva-container" type="submit" name="action" value="ReservaView">Reservar</button>
+            </form>
+        </div>
+
+        <div id="webcam-container"></div>
+        <div id="label-container"></div>
+        <a-scene arjs>
+            <a-camera position="0 0 0" rotation-reader></a-camera>
+            <a-light type="point" intensity="1" position="1 3 0"></a-light>
+            <a-light type="point" intensity="1" position="-1 3 0"></a-light>
+            <a-entity id="llama-container" position="0 0 0">
+                <!--Centro-->
+                <a-animation attribute="position" dur="1000" to="0 0 -2" begin="move-llama"></a-animation>
+                <a-entity id="llama1" gltf-model="{% static 'ar/alpaca.glb' %}" visible="false" scale="0.4 0.3 0.4"
+                    rotation="0 -45 0" position="0.7 -0.3 -2"></a-entity>
+                <a-entity id="llama2" gltf-model="{% static 'ar/alpaca.glb' %}" visible="false" scale="0.4 0.3 0.4"
+                    rotation="0 45 0" position="-0.7 -0.3 -2"></a-entity>
+                <a-image id="cuadro-image1" src="{% static 'ar/Titulo.png' %}" visible="false" scale="1.2 1.1 0.49"
+                    position="0 0.32 -2"></a-image>
+                <a-text id="text-nombreP" value="" scale="0.3 0.15 0.3" color="black" text-align="center" text-anchor="align: center"
+                    position="-0.15 0.32 -1.9" font-weight="bold"></a-text>
+                <a-text id="text-nombreE" value="" scale="0.3 0.15 0.3" color="black" text-align="center" text-anchor="align: center"
+                position="-0.15 0.265 -1.9" font-weight="bold"></a-text>
+
+                <!--Derecha-->
+                <a-image id="cuadro1D" src="{% static 'ar/Info.png' %}" visible="false" scale="1 1 1" position="2.5 0 0.65"
+                    rotation="0 -90 0"></a-image>
+                <a-text id="textOri" value="" scale="0.33 0.33 0.2" color="black" text-align="center"
+                    position="2.45 -0.03 0.4" rotation="0 -90 0"></a-text>
+                <a-image id="cuadro2D" src="{% static 'ar/Info.png' %}" visible="false" scale="1 1 1" position="2.5 0 -0.65"
+                    rotation="0 90 0"></a-image>
+                <a-text id="textTV" value="" scale="0.33 0.33 0.2" color="black" text-align="center"
+                    position="2.45 -0.03 -0.9" rotation="0 -90 0"></a-text>
+
+                <!--Izquierda-->
+                <a-image id="cuadro1I" src="{% static 'ar/Info.png' %}" visible="false" scale="1 1 1" position="-2.5 0 0.65"
+                    rotation="0 -90 0"></a-image>
+                <a-text id="textPro" value="" scale="0.33 0.33 0.2" color="black" text-align="center"
+                    position="-2.45 -0.03 0.92" rotation="0 90 0"></a-text>
+                <a-image id="cuadro2I" src="{% static 'ar/Info.png' %}" visible="false" scale="1 1 1" position="-2.5 0 -0.65"
+                    rotation="0 90 0"></a-image>
+                <a-text id="textCondi" value="" scale="0.3 0.3 0.2" color="black" text-align="center"
+                    position="-2.45 -0.03 -0.27" rotation="0 90 0"></a-text>
+
+                <!--Atras-->
+                <a-image id="cuadro1A" src="{% static 'ar/Info.png' %}" visible="false" scale="1.3 1.3 1" position="0.75 0 3"
+                    rotation="0 0 0"></a-image>
+                <a-text id="textDeta" value="" scale="0.34 0.34 0.2" color="black" text-align="center"
+                    position="1.14 -0.05 2.9" rotation="0 180 0"></a-text>
+                <a-image id="cuadro2A" src="{% static 'ar/Info.png' %}" visible="false" scale="1.3 1.3 1" position="-0.75 0 3"
+                    rotation="0 180 0"></a-image>
+                <a-text id="textCurio" value="" scale="0.34 0.34 0.2" color="black" text-align="center"
+                    position="-0.24 -0.05 2.9" rotation="0 180 0"></a-text>
+            </a-entity>
+            <div id="plantas-data" data-plantas="{{ plantas_json }}"></div>
+
+
+
+        </a-scene>
+
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+        <script
+            src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+        <script type="text/javascript">
+
+            // Elementos de la escena
+            const scene = document.querySelector('a-scene');
+            const sphere = document.querySelector('a-sphere');
+
+            let model, maxPredictions, webcam;
+            var predictedClass = "Ninguna", result = "Ninguna";
+            let isPredicting = false;
+
+
+            async function init() {
+                
+                //const URL = "https://teachablemachine.withgoogle.com/models/QsnmUWGQ-/";
+                //const URL = "https://teachablemachine.withgoogle.com/models/1UxHDQWdt/";
+                const URL = "https://teachablemachine.withgoogle.com/models/1UxHDQWdt/";
+
+                const modelURL = URL + "model.json";
+                const metadataURL = URL + "metadata.json";
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+
+                const flip = false;
+                webcam = new tmImage.Webcam(500, 400, flip);
+                await webcam.setup({ facingMode: "environment" });
+                await webcam.play();
+
+                //document.getElementById("webcam-container").appendChild(webcam.canvas);
+                window.requestAnimationFrame(loop);
+
+            }
+
+            function togglePredicting() {
+                isPredicting = true;
+                let timer = setTimeout(() => {
+                    isPredicting = false;
+                    console.log("Es una: ", predictedClass);
+                    result = predictedClass;
+                    show3DModels(result);
+                    predictedClass = "Ninguna";
+                }, 1000);
+            }
+
+            // Bucle para actualizar las predicciones
+            async function loop() {
+                webcam.update();
+                if (isPredicting) {
+                    await predict();
+                }
+                window.requestAnimationFrame(loop);
+            }
+
+            // Función para realizar predicciones
+            async function predict() {
+                const prediction = await model.predict(webcam.canvas);
+                for (let i = 0; i < maxPredictions; i++) {
+
+                    if (prediction[i].probability >= 0.95) {
+                        const classPrediction = `Clase: ${prediction[i].className} - Probabilidad: ${prediction[i].probability.toFixed(2)}`;
+                        predictedClass = prediction[i].className;
+                    } else {
+                    }
+                }
+            }
+
+            // Evento de carga de la página
+            window.addEventListener('load', function () {
+                init();
+            });
+
+            // Función para mostrar modelos 3D con AR.js y A-Frame
+            function show3DModels(resulta) {
+
+                // Encuentra la cámara en la escena
+                const camera = document.querySelector('a-camera');
+
+                //const llamaEntity = document.querySelector('a-entity[gltf-model="Llama.glb"]');
+                const resultText = document.getElementById("result-text");
+                const llamaContainer = document.querySelector('#llama-container');
+                //Centro
+                const llamaEntity = document.querySelector('#llama1');
+                const llamaEntity2 = document.querySelector('#llama2');
+                const cuadroImage = document.querySelector('#cuadro-image1');
+                const textnombreP = document.querySelector('#text-nombreP');
+                const textnombreE = document.querySelector('#text-nombreE');
+                //Derecha
+                const cuadro1D = document.querySelector('#cuadro1D');
+                const cuadro2D = document.querySelector('#cuadro2D');
+                const textOrigen = document.querySelector('#textOri');
+                const textTiempoVida = document.querySelector('#textTV');
+                //Izquierda
+                const cuadro1I = document.querySelector('#cuadro1I');
+                const cuadro2I = document.querySelector('#cuadro2I');
+                const textPropiedad = document.querySelector('#textPro');
+                const textCondicion = document.querySelector('#textCondi');
+                //Atras
+                const cuadro1A = document.querySelector('#cuadro1A');
+                const cuadro2A = document.querySelector('#cuadro2A');
+                const textCuriosidad = document.querySelector('#textCurio');
+                const textDetalle = document.querySelector('#textDeta');
+                //const textLength = cuadroText1.length;
+                const minWidth = 0.5; 
+                const maxWidth = 4;
+        
+                var plantasDataElement = document.getElementById("plantas-data");
+                var plantas = JSON.parse(plantasDataElement.getAttribute("data-plantas"));
+                let sihay=false;
+                let largo1 = 1;
+                let largo2 = 1;
+                let largoOrigen = 1;
+                let nombrePlanta = "";
+                let nombreEspecie = "";
+                let origen = "";
+                let tiempoVida = "";
+                let propiedades = "";
+                let detalle = "";
+                let curiosidad = "";
+                let condicionAmbiental = "";
+
+
+                for (const planta of plantas) { 
+                    if(planta.nombrePlanta == resulta){
+                        nombrePlanta = planta.nombrePlanta;
+                        largo1 = nombrePlanta.length;
+                        nombreEspecie = planta.nombreEspecie;
+                        largo2 = nombreEspecie.length;
+                        origen = planta.origen;
+                        largoOrigen = origen.length;
+                        tiempoVida = planta.tiempoVida;
+                        propiedades = planta.propiedades;
+                        detalle = planta.detalle;
+                        curiosidad = planta.curiosidad;
+                        condicionAmbiental = planta.condicionAmbiental;
+                        sihay=true;
+                    }
+                    // Realiza aquí cualquier operación que necesites con los datos de las plantas
+                }
+                console.log("hay?: ", sihay);
+                
+
+                // Cambia el color de la esfera según la clase reconocida
+                if (sihay) {
+                    llamaContainer.emit('move-llama');
+                    llamaEntity.setAttribute('visible', 'true');
+                    llamaEntity2.setAttribute('visible', 'true');
+                    //Centro
+                    cuadroImage.setAttribute('visible', 'true');
+                    cuadroImage.setAttribute('width', largo2/10);
+                    textnombreP.setAttribute('text', 'value', `${nombrePlanta}`);
+                    textnombreP.setAttribute('look-at', '[camera]');
+                    textnombreP.setAttribute('position', {
+                        x: -0.13-largo1/300,
+                        y: 0.32,
+                        z: -1.9,
+                      });
+                    console.log("posi1: ", textnombreP.getAttribute('position'));
+                    textnombreE.setAttribute('text', 'value', `${nombreEspecie}`);
+                    textnombreE.setAttribute('look-at', '[camera]');
+                    textnombreE.setAttribute('position', {
+                        x: -0.13-largo2/200,
+                        y: 0.265,
+                        z: -1.9,
+                      });
+                    console.log("posi2: ", textnombreE.getAttribute('position'));
+                    //Derecha
+                    cuadro1D.setAttribute('visible', 'true');
+                    cuadro2D.setAttribute('visible', 'true');
+                    if(largoOrigen>8) {
+                        textOrigen.setAttribute('position', {
+                            x: 2.45,
+                            y: -0.03,
+                            z: 0.3,
+                          });
+                    } else {
+                        textOrigen.setAttribute('position', {
+                            x: 2.45,
+                            y: -0.03,
+                            z: 0.4,
+                          });
+                    }
+                    textOrigen.setAttribute('text', 'value', `Origen:\n└     ${origen}`);
+                    textOrigen.setAttribute('look-at', '[camera]');
+                    textTiempoVida.setAttribute('text', 'value', `Tiempo de Vida:\n└           ${tiempoVida}`);
+                    textTiempoVida.setAttribute('look-at', '[camera]');
+                    //Izquierda
+                    cuadro1I.setAttribute('visible', 'true');
+                    cuadro2I.setAttribute('visible', 'true');
+                    textPropiedad.setAttribute('text', 'value', `Propiedades:\n└         ${propiedades}`);
+                    textPropiedad.setAttribute('look-at', '[camera]');
+                    textCondicion.setAttribute('text', 'value', `Condicion Ambiental:\n└         ${condicionAmbiental}`);
+                    textCondicion.setAttribute('look-at', '[camera]');
+                    //Atras
+                    cuadro1A.setAttribute('visible', 'true');
+                    cuadro2A.setAttribute('visible', 'true');
+                    textCuriosidad.setAttribute('text', 'value', `${curiosidad}`);
+                    textCuriosidad.setAttribute('look-at', '[camera]');
+                    textDetalle.setAttribute('text', 'value', `${detalle}`);
+                    textDetalle.setAttribute('look-at', '[camera]');
+                    
+                } else {
+                    //Centro
+                    llamaEntity.setAttribute('visible', 'false');
+                    llamaEntity2.setAttribute('visible', 'false');
+                    cuadroImage.setAttribute('visible', 'false');
+                    textnombreP.setAttribute('text', 'value', '');
+                    textnombreE.setAttribute('text', 'value', '');
+                    //Derecha
+                    cuadro1D.setAttribute('visible', 'false');
+                    cuadro2D.setAttribute('visible', 'false');
+                    textOrigen.setAttribute('text', 'value', ``);
+                    textTiempoVida.setAttribute('text', 'value', ``);
+                    //Izquierda
+                    cuadro1I.setAttribute('visible', 'false');
+                    cuadro2I.setAttribute('visible', 'false');
+                    textPropiedad.setAttribute('text', 'value', ``);
+                    textCondicion.setAttribute('text', 'value', ``);
+                    //Atras
+                    cuadro1A.setAttribute('visible', 'false');
+                    cuadro2A.setAttribute('visible', 'false');
+                    textCuriosidad.setAttribute('text', 'value', ``);
+                    textDetalle.setAttribute('text', 'value', ``);
+                }
+
+                resultText.textContent = resulta;
+
+            }
+
+        </script>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Instascan</title>
+    <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
+    <style>
+        /* Estilos para el contenedor que ocupa toda la pantalla */
+        .full-screen-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Para ocultar el desbordamiento */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        /* Estilos para el video dentro del contenedor */
+        .full-screen-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Estilos para el contenedor del botón */
+        .button-container {
+            position: absolute;
+            bottom: 20px; /* Ajusta la posición del contenedor del botón */
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 2;
+        }
+
+        /* Estilos para el botón de escaneo */
+        .scan-button {
+            background-color: #007BFF;
+            color: #fff;
+            padding: 45px 90px; /* Aumenta el tamaño del botón */
+            border: none;
+            cursor: pointer;
+            font-size: 36px; 
+        }
+    </style>
+  </head>
+  <body>
+
+    <div class="full-screen-container">
+        <!-- Video que ocupará toda la pantalla -->
+        <video id="preview" class="full-screen-video" autoplay></video>
+        <div class="button-container">
+            <form id="redirectForm" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="content" id="contenidoQR">
+                <button class="scan-button submit" id="scanButton">Escanear</button>
+            </form>
+            
+        </div>
+    </div>
+
+    <script type="text/javascript">
+
+        let scanner = new Instascan.Scanner({ 
+            video: document.getElementById('preview'),
+            scanPeriod : 5,
+            mirror: false
+        });
+        Instascan.Camera.getCameras().then(function (cameras) {
+            if (cameras.length > 0) {
+                let selectedCamera = cameras.find(function(camera) {
+                    return camera.name.indexOf('back') !== -1; // Buscar una cámara con "back" en el nombre
+                });
+        
+                if (!selectedCamera) {
+                    selectedCamera = cameras[0]; // Si no se encuentra una cámara trasera, utiliza la primera disponible
+                }
+        
+                scanner.start(selectedCamera);
+            } else {
+                console.error('No cameras found.');
+                alert('Cámara no encontrada');
+            }
+        }).catch(function (e) {
+            console.error(e);
+            alert('Error: ' + e);
+        });
+
+        scanner.addListener('scan', function (content) {
+            document.getElementById('contenidoQR').value = content;
+            //document.getElementById('redirectForm').submit();
+
+        });
+
+    </script>
+  </body>
+</html>
